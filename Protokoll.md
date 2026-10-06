@@ -183,3 +183,6 @@ PS C:\Users\marti\Desktop\Personal Projects\DEZSYS_GK71_FLOODMONITOR_REST_INCOMP
 
 ### 06.10.2026, 16:14 (Gemini 3.6 Flash)
 Wie mache ich das: Add XML support: return XML instead of JSON when the client sends Accept: application/xml.
+
+### 06.10.2026, 16:19 (Gemini 3.6 Flash)
+Integrate Springdoc OpenAPI (Swagger UI) to document your API. Wie mache ich das?
