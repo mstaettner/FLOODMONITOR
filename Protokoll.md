@@ -287,3 +287,129 @@ Verwenden Sie folgende Enums:
 WarningLevel: NORMAL, WARNING, CRITICAL, UNKNOWN
 StationStatus: ONLINE, MAINTENANCE, OFFLINE
 Zeitpunkte sollen mit einem geeigneten Java-Zeitdatentyp aus java.time gespeichert werden.
+
+### 06.10.2026, 17:48 (Gemini 3.6 Flash)
+3. Warnstufe berechnen
+   Die Warnstufe wird serverseitig berechnet und darf nicht vom Client vorgegeben werden.
+   BedingungWarnstufeWasserstand kleiner als WarnwertNORMALWasserstand ab WarnwertWARNINGWasserstand ab kritischem WertCRITICALKeine aktuelle oder gültige MessungUNKNOWN
+   Optional dürfen Niederschlag und die Geschwindigkeit des Wasseranstiegs berücksichtigt werden. Dokumentieren Sie Ihre verwendeten Regeln. Wäre es nicht schlau dies hier zu implementieren: package com.example.floodmonitor.service;
+
+import com.example.floodmonitor.StationStatus;
+import com.example.floodmonitor.WarningLevel;
+import com.example.floodmonitor.model.*;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Service
+public class SimulationService {
+
+    private final List<Station> stations = new ArrayList<>();
+    private final Random random = new Random();
+
+    public SimulationService() {
+        initStations();
+    }
+
+    private void initStations() {
+        Location loc1 = new Location(48.2082, 16.3738);
+        Station vienna = new Station("1", "Station Vienna", "Donau", loc1, 150.0, 300.0, 450.0, true);
+
+        Location loc2 = new Location(48.3069, 14.2858);
+        Station linz = new Station("2", "Station Linz", "Donau", loc2, 120.0, 250.0, 380.0, true);
+
+        stations.add(vienna);
+        stations.add(linz);
+
+        // Ersten Initial-Messwert erzeugen
+        for (Station s : stations) {
+            generateNextMeasurement(s);
+        }
+    }
+
+    // Geplante Aufgabe, die das konfigurierte Intervall nutzt
+    @Scheduled(fixedRateString = "${simulation.interval:10000}")
+    public void runSimulationCycle() {
+        for (Station station : stations) {
+            // Keine neuen Messungen für inaktive Stationen
+            if (!station.isActive()) {
+                continue;
+            }
+
+            // Prüfe den aktuellen Status des letzten Messwerts (falls vorhanden)
+            List<Measurement> measurements = station.getMeasurements();
+            if (!measurements.isEmpty()) {
+                Measurement last = measurements.get(measurements.size() - 1);
+                if (last.getStatus() == StationStatus.OFFLINE) {
+                    continue; // Keine neuen Messungen bei OFFLINE
+                }
+            }
+
+            generateNextMeasurement(station);
+        }
+    }
+
+    private void generateNextMeasurement(Station station) {
+        List<Measurement> history = station.getMeasurements();
+        Measurement prev = history.isEmpty() ? null : history.get(history.size() - 1);
+
+        // --- 1. Vorherige Werte holen oder Standardwerte setzen ---
+        double lastLevel = (prev != null) ? prev.getWaterLevel() : station.getNormalWaterLevel();
+        double lastBattery = (prev != null) ? prev.getBatteryLevel() : 100.0;
+        double lastTemp = (prev != null) ? prev.getTemperature() : 15.0;
+
+        // --- 2. Niederschlag & Temperatur simulieren ---
+        // Zufälliger Niederschlag zwischen 0.0 und 15.0 mm/h
+        double rainfall = Math.round((random.nextDouble() * 15.0) * 10.0) / 10.0;
+        double temperature = Math.round((lastTemp + (random.nextDouble() - 0.5)) * 10.0) / 10.0;
+
+        // --- 3. Wasserstand berechnen (abhängig vom vorherigen Wert & Niederschlag) ---
+        // Regen lässt den Pegel steigen, sonst leichte Schwankung / Abfluss
+        double delta = (rainfall > 3.0) ? (rainfall * 0.8) : ((random.nextDouble() - 0.55) * 2.0);
+        double currentWaterLevel = Math.max(0.0, Math.round((lastLevel + delta) * 100.0) / 100.0);
+
+        // --- 4. Durchflussmenge berechnen (höherer Wasserstand -> höherer Durchfluss) ---
+        // Formel-Beispiel: Q = 5.0 * (m)^1.5  (Wasserstand in Metern umgerechnet)
+        double levelInMeters = currentWaterLevel / 100.0;
+        double flowRate = Math.round((5.0 * Math.pow(levelInMeters, 1.5)) * 100.0) / 100.0;
+
+        // --- 5. Akkustand reduzieren ---
+        double batteryLevel = Math.max(0.0, Math.round((lastBattery - 0.2) * 10.0) / 10.0);
+
+        // --- 6. Status und WarningLevel bestimmen ---
+        StationStatus status = StationStatus.ONLINE;
+        if (batteryLevel < 10.0) {
+            status = StationStatus.MAINTENANCE; // Bei niedrigem Akku auf MAINTENANCE wechseln
+        }
+
+        WarningLevel warningLevel = WarningLevel.NORMAL;
+        if (currentWaterLevel >= station.getCriticalWaterLevel()) {
+            warningLevel = WarningLevel.CRITICAL;
+        } else if (currentWaterLevel >= station.getWarningWaterLevel()) {
+            warningLevel = WarningLevel.WARNING;
+        }
+
+        // --- 7. Messung erstellen und zur Station hinzufügen ---
+        Measurement newMeasurement = new Measurement(LocalDateTime.now(), currentWaterLevel, flowRate, rainfall, temperature, batteryLevel, status, warningLevel);
+
+        station.getMeasurements().add(newMeasurement);
+    }
+
+    public List<Station> getStations() {
+        return stations;
+    }
+
+    public Optional<Station> getStationById(String id) {
+        return stations.stream().filter(s -> s.getId().equals(id)).findFirst();
+    }
+
+    public Station addStation(Station station) {
+        if (station.getId() == null || station.getId().isBlank()) {
+            station.setId(String.valueOf(stations.size() + 1));
+        }
+        stations.add(station);
+        return station;
+    }
+}
