@@ -239,3 +239,51 @@ public class StationController {
 
 ### 06.10.2026, 16:50 (Gemini 3.6 Flash)
 aber es passt ja so wie ich es habe auch, oder nicht?
+
+### 06.10.2026, 17:14 (Gemini 3.6 Flash)
+package com.example.floodmonitor.model;
+
+public class Station {
+private String id;
+private String stationName;
+private String timestamp;
+private double waterLevel;
+private double waterTemperature;
+private String unit;
+private double waterFlow;
+
+    public Station() {}
+
+    public Station(String id, String stationName, String timestamp, double waterLevel, double waterTemperature, String unit) {
+        this.id = id;
+        this.stationName = stationName;
+        this.timestamp = timestamp;
+        this.waterLevel = waterLevel;
+        this.waterTemperature = waterTemperature;
+        this.unit = unit;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getStationName() { return stationName; }
+    public void setStationName(String stationName) { this.stationName = stationName; }
+    public String getTimestamp() { return timestamp; }
+    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+    public double getWaterLevel() { return waterLevel; }
+    public void setWaterLevel(double waterLevel) { this.waterLevel = waterLevel; }
+    public double getWaterTemperature() { return waterTemperature; }
+    public void setWaterTemperature(double waterTemperature) { this.waterTemperature = waterTemperature; }
+    public String getUnit() { return unit; }
+    public void setUnit(String unit) { this.unit = unit; }
+    public double getWaterFlow() { return waterFlow; }
+    public void setWaterFlow(double waterFlow) { this.waterFlow=waterFlow; }
+} Hier ist meine Klasse Station und hier die Angabe. Schreibe mir diese Klasse fertig: Szenario und Datenmodell
+Das Hochwasser-Frühwarnsystem besteht aus mehreren Messstationen. Jede Station befindet sich an einem bestimmten Flussabschnitt und erzeugt regelmäßig Messungen.
+Eine Messung enthält mindestens folgende Daten:
+EigenschaftBeschreibungEinheittimestampZeitpunkt der MessungISO-8601waterLevelaktueller WasserstandcmflowRateDurchflussmengem³/srainfallNiederschlag der letzten Stundemm/htemperatureLufttemperatur°CbatteryLevelAkkustand der Messstation%statustechnischer Zustand der StationTextwarningLevelberechnete HochwasserwarnstufeText
+Eine Messstation enthält mindestens id, name, river, location, normalWaterLevel, warningWaterLevel, criticalWaterLevel und isActive. Die geografische Position besteht aus Breitengrad und Längengrad.
+Implementieren Sie mindestens die Klassen Station, Location, Measurement, WarningLevel und StationStatus.
+Verwenden Sie folgende Enums:
+WarningLevel: NORMAL, WARNING, CRITICAL, UNKNOWN
+StationStatus: ONLINE, MAINTENANCE, OFFLINE
+Zeitpunkte sollen mit einem geeigneten Java-Zeitdatentyp aus java.time gespeichert werden.
