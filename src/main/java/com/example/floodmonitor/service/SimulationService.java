@@ -141,6 +141,22 @@ public class SimulationService {
         if (station.getId() == null || station.getId().isBlank()) {
             station.setId(String.valueOf(stations.size() + 1));
         }
+
+        // Falls der Client eine Messung mitgeschickt hat: Warnstufe serverseitig erzwingen/berechnen
+        if (station.getMeasurements() != null && !station.getMeasurements().isEmpty()) {
+            Measurement last = station.getMeasurements().get(station.getMeasurements().size() - 1);
+
+            // Überschreibt jeden vom Client vorgegebenen Wert mit der echten Backend-Berechnung
+            WarningLevel calculated = calculateWarningLevel(
+                    station,
+                    last.getWaterLevel(),
+                    null,
+                    last.getRainfall(),
+                    last.getStatus()
+            );
+            last.setWarningLevel(calculated);
+        }
+
         stations.add(station);
         return station;
     }

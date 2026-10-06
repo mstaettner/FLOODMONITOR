@@ -22,24 +22,24 @@ public class StationController {
 
     @GetMapping(value = "/stations", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public List<Station> getStations() {
-        return simulationService.generateStations();
+        // Nutzt die vom Simulator laufend aktualisierte Liste
+        return simulationService.getStations();
     }
 
-    @GetMapping(value="/stations/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @GetMapping(value = "/stations/count", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    public int countStations() {
+        return simulationService.getStations().size();
+    }
+
+    @GetMapping(value = "/stations/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public ResponseEntity<Station> getStationById(@PathVariable String id) {
         return simulationService.getStationById(id)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping(value="/stations/count", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public int countStations(){
-        List<Station> stations = simulationService.generateStations();
-        return stations.size();
-    }
-
-    @PostMapping(value="/stations", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}, produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public ResponseEntity<Station> createStation(@RequestBody Station station){
+    @PostMapping(value = "/stations", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}, produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    public ResponseEntity<Station> createStation(@RequestBody Station station) {
         Station createdStation = simulationService.addStation(station);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdStation);
     }
