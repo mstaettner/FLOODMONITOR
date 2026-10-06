@@ -414,7 +414,7 @@ public class SimulationService {
     }
 }
 
-### ### 06.10.2026, 18:07 (Gemini 3.6 Flash)
+### 06.10.2026, 18:07 (Gemini 3.6 Flash)
 package com.example.floodmonitor.controller;
 
 import com.example.floodmonitor.model.Station;
@@ -609,3 +609,9 @@ public class SimulationService {
 }
 
 Was soll ich jetzt satt generateStations machen? Die Warnstufe wird serverseitig berechnet und darf nicht vom Client vorgegeben werden. Ich vermute, dass hier nur gemeint ist, dass dies im JavaCode (Backend) nur so sein soll, da dies ja vermutlich der Server sein sollte und der Client ja eingeltich nur mit dem späteren Frontend (sprich HTML, CSS, jQuery-Page)  interagiert und es ja nur dort nicht vorgeben darf
+
+### 06.10.2026, 18:09 (Gemini 3.6 Flash)
+ok, sieht gut aus. Warum sehe ich im Browser jetzt standardmäßig xml und nicht json. Wie kann ich das umstellen?
+
+### 06.10.2026, 18:10 (Gemini 3.6 Flash)
+aber wenn ich swagger beides funktioniert, dann habe ich alles richtig gemacht, oder?
