@@ -1,5 +1,8 @@
 package com.example.floodmonitor.model;
 
+import com.example.floodmonitor.StationStatus;
+import com.example.floodmonitor.WarningLevel;
+
 import java.time.LocalDateTime;
 
 public class Measurement {
