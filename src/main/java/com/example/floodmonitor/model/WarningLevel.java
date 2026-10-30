@@ -1,4 +1,4 @@
-package com.example.floodmonitor;
+package com.example.floodmonitor.model;
 
 public enum WarningLevel {
     NORMAL,

@@ -1,7 +1,7 @@
 package com.example.floodmonitor.service;
 
-import com.example.floodmonitor.StationStatus;
-import com.example.floodmonitor.WarningLevel;
+import com.example.floodmonitor.model.StationStatus;
+import com.example.floodmonitor.model.WarningLevel;
 import com.example.floodmonitor.model.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -69,6 +69,7 @@ public class SimulationService {
         double currentWaterLevel = Math.max(0.0, Math.round((lastLevel + delta) * 100.0) / 100.0);
 
         double levelInMeters = currentWaterLevel / 100.0;
+        // Korrigiert: Multiplikationszeichen '*' hinzugefügt
         double flowRate = Math.round((5.0 * Math.pow(levelInMeters, 1.5)) * 100.0) / 100.0;
 
         double batteryLevel = Math.max(0.0, Math.round((lastBattery - 0.2) * 10.0) / 10.0);
