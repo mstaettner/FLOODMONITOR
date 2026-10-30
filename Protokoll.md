@@ -615,3 +615,16 @@ ok, sieht gut aus. Warum sehe ich im Browser jetzt standardmäßig xml und nicht
 
 ### 06.10.2026, 18:10 (Gemini 3.6 Flash)
 aber wenn ich swagger beides funktioniert, dann habe ich alles richtig gemacht, oder?
+
+### 30.10.2026, 21:18 (Gemini Automatic 3er Modell)
+5. JSON und XML: Content Negotiation Ist ja erledigt. Wie setze ich nun folgendes um: 6. HTTP-Statuscodes und Fehlerbehandlung
+   SituationStatuscodeAnfrage erfolgreich200 OKRessource erstellt201 CreatedErfolgreich, keine Antwortdaten204 No ContentUngültige Eingabe400 Bad RequestAnmeldung erforderlich401 UnauthorizedZugriff nicht erlaubt403 ForbiddenStation nicht gefunden404 Not FoundFormat nicht unterstützt406 Not AcceptableKonflikt409 ConflictMedientyp nicht unterstützt415 Unsupported Media TypeInterner Fehler500 Internal Server Error
+   Implementieren Sie eine zentrale Fehlerbehandlung, beispielsweise mit @ControllerAdvice. Fehler müssen ebenfalls in JSON oder XML ausgegeben werden.
+   {
+   "timestamp": "2026-05-01T10:20:00Z",
+   "status": 404,
+   "error": "Not Found",
+   "message": "Station ST-999 wurde nicht gefunden",
+   "path": "/api/v1/stations/ST-999"
+   }
+   Behandeln Sie mindestens unbekannte Stations-IDs, ungültige Zeiträume, from nach to, ungültige Warnstufen, negative oder zu große limit-Werte, ungültige Datumsformate und nicht unterstützte Formate. Geben Sie keine Stacktraces aus.

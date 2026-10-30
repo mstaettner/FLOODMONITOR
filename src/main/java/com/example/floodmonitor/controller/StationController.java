@@ -1,5 +1,6 @@
 package com.example.floodmonitor.controller;
 
+import com.example.floodmonitor.exception.StationNotFoundException;
 import com.example.floodmonitor.model.Station;
 import com.example.floodmonitor.service.SimulationService;
 
@@ -33,9 +34,10 @@ public class StationController {
 
     @GetMapping(value = "/stations/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public ResponseEntity<Station> getStationById(@PathVariable String id) {
-        return simulationService.getStationById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        Station station = simulationService.getStationById(id)
+                .orElseThrow(() -> new StationNotFoundException("Station " + id + " wurde nicht gefunden"));
+
+        return ResponseEntity.ok(station);
     }
 
     @PostMapping(value = "/stations", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}, produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
