@@ -179,7 +179,7 @@ PS C:\Users\marti\Desktop\Personal Projects\DEZSYS_GK71_FLOODMONITOR_REST_INCOMP
 {"timestamp":"2026-10-06T13:56:35.189+00:00","status":400,"error":"Bad Request","path":"/api/v1/stations"}
 
 ### 06.10.2026, 16:02 (Gemini 3.6 Flash)
-![prompt post cmd](/docs/screenshots/prompt post cmd.png)
+![prompt post cmd](docs/screenshots/prompt post cmd.png)
 
 ### 06.10.2026, 16:14 (Gemini 3.6 Flash)
 Wie mache ich das: Add XML support: return XML instead of JSON when the client sends Accept: application/xml.
@@ -628,3 +628,25 @@ aber wenn ich swagger beides funktioniert, dann habe ich alles richtig gemacht, 
    "path": "/api/v1/stations/ST-999"
    }
    Behandeln Sie mindestens unbekannte Stations-IDs, ungültige Zeiträume, from nach to, ungültige Warnstufen, negative oder zu große limit-Werte, ungültige Datumsformate und nicht unterstützte Formate. Geben Sie keine Stacktraces aus.
+
+### 30.10.2026, 21:29 (Gemini Automatic 3er Modell)
+Erstelle mir nun diesen Web-Client: 7. Webclient
+Erstellen Sie einen einfachen Client mit HTML, CSS und jQuery. Er muss:
+- Stationen laden,
+- den aktuellen Messwert einer Station anzeigen,
+- historische Messwerte tabellarisch darstellen,
+- nach Zeitraum und Warnstufe filtern,
+- zwischen JSON und XML umschalten,
+- Daten periodisch aktualisieren,
+- Ladezustände und verständliche Fehlermeldungen anzeigen.
+  Die Tabelle enthält Station, Zeitpunkt, Wasserstand, Durchflussmenge, Niederschlag, Akkustand, Stationsstatus und Warnstufe. Kennzeichnen Sie NORMAL grün, WARNING orange, CRITICAL rot und UNKNOWN grau. Bei XML-Antworten muss der Client das XML auswerten und dieselben Informationen darstellen wie bei JSON.
+
+### 30.10.2026, 21:34 (Gemini Automatic 3er Modell)
+wie integriere ich diese seite jetzt richtig in meinen floodmonitor?
+
+### 30.10.2026, 21:37 (Gemini Automatic 3er Modell)
+![client port](docs/screenshots/client%20port.jpg)
+Ich habe in resources einen static Ordner erstellt, worin sich diese html-Seite befindet. Die Seite wird aber auf Port 63342 geöffnet und ich habe keine Verbindung zum Backend
+
+### 30.10.2026, 21:40 (Gemini Automatic 3er Modell)
+Ja, auf 8080 läuft es, danke. Was macht der Toggle oben rechts der zwischen xml und json unterscheidet, wo kann ich diese änderung mir ansehen

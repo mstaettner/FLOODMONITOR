@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Monitor Client</title>
+    <!-- Tailwind CSS for modern responsive aesthetics -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jQuery for API requests and DOM manipulation -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .badge-normal { background-color: #d1fae5; color: #065f46; }
+        .badge-warning { background-color: #fef3c7; color: #92400e; }
+        .badge-critical { background-color: #fee2e2; color: #991b1b; }
+        .badge-unknown { background-color: #f3f4f6; color: #374151; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-full flex flex-col justify-between font-sans">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-water text-2xl text-indigo-400 animate-pulse"></i>
+                <h1 class="text-xl font-bold tracking-tight">DEZSYS Flood Monitor Dashboard</h1>
+            </div>
+            
+            <!-- Global Controls: Format Toggle & Auto-Refresh -->
+            <div class="flex items-center space-x-4 flex-wrap gap-y-2">
+                <!-- Format Selector -->
+                <div class="flex items-center bg-indigo-800 rounded-lg p-1 text-sm border border-indigo-700">
+                    <span class="px-2 text-indigo-200 text-xs font-semibold">Format:</span>
+                    <button id="btn-json" onclick="setFormat('json')" class="px-3 py-1 rounded bg-indigo-600 text-white font-medium transition shadow-sm">JSON</button>
+                    <button id="btn-xml" onclick="setFormat('xml')" class="px-3 py-1 rounded text-indigo-300 hover:text-white font-medium transition">XML</button>
+                </div>
+
+                <!-- Auto Refresh Toggle -->
+                <div class="flex items-center space-x-2 bg-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-700 text-sm">
+                    <label for="auto-refresh-toggle" class="cursor-pointer text-indigo-200 text-xs font-semibold">Auto-Refresh (10s):</label>
+                    <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-grow space-y-6">
+
+        <!-- Error / Alert Banner Container -->
+        <div id="alert-banner" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex items-start justify-between">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                <div>
+                    <span id="alert-title" class="font-bold">Error:</span>
+                    <span id="alert-message" class="block sm:inline"> Unable to reach backend server.</span>
+                </div>
+            </div>
+            <button onclick="$('#alert-banner').addClass('hidden')" class="text-red-500 hover:text-red-700 font-bold">&times;</button>
+        </div>
+
+        <!-- Station Selector & Quick Stats Bar -->
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="w-full md:w-1/3">
+                <label for="station-select" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select Station</label>
+                <div class="relative">
+                    <select id="station-select" onchange="onStationChanged()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 transition">
+                        <option value="">-- Loading Stations --</option>
+                    </select>
+                    <div id="station-spinner" class="absolute right-3 top-3 hidden">
+                        <i class="fa-solid fa-spinner animate-spin text-indigo-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Info Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-2/3">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-xs text-slate-500 block font-medium">River</span>
+                    <span id="info-river" class="text-sm font-bold text-slate-800">-</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-xs text-slate-500 block font-medium">Station Status</span>
+                    <span id="info-status" class="text-sm font-bold text-slate-800">-</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-xs text-slate-500 block font-medium">Battery Level</span>
+                    <span id="info-battery" class="text-sm font-bold text-slate-800">-</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-xs text-slate-500 block font-medium">Warning Level</span>
+                    <span id="info-warning" class="text-sm font-bold badge-unknown px-2 py-0.5 rounded inline-block mt-0.5">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-filter mr-1"></i> Filters:</span>
+                
+                <!-- From Date -->
+                <div class="flex items-center space-x-1 text-sm">
+                    <label for="filter-from" class="text-slate-600 text-xs">From:</label>
+                    <input type="datetime-local" id="filter-from" onchange="applyFilters()" class="bg-slate-50 border border-slate-300 rounded p-1.5 text-xs">
+                </div>
+
+                <!-- To Date -->
+                <div class="flex items-center space-x-1 text-sm">
+                    <label for="filter-to" class="text-slate-600 text-xs">To:</label>
+                    <input type="datetime-local" id="filter-to" onchange="applyFilters()" class="bg-slate-50 border border-slate-300 rounded p-1.5 text-xs">
+                </div>
+
+                <!-- Warning Level Filter -->
+                <div class="flex items-center space-x-1 text-sm">
+                    <label for="filter-warning" class="text-slate-600 text-xs">Level:</label>
+                    <select id="filter-warning" onchange="applyFilters()" class="bg-slate-50 border border-slate-300 rounded p-1.5 text-xs">
+                        <option value="">ALL</option>
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                        <option value="UNKNOWN">UNKNOWN</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="resetFilters()" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition">Reset Filters</button>
+                <button onclick="fetchStationsData()" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded transition shadow-sm flex items-center space-x-1">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Refresh Now</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Historical Measurements Table Container -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wide">Historical Measurements</h3>
+                <span id="record-count" class="text-xs text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full font-medium">0 records</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100/70 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4 font-semibold">Station</th>
+                            <th class="py-3 px-4 font-semibold">Timestamp</th>
+                            <th class="py-3 px-4 font-semibold">Water Level</th>
+                            <th class="py-3 px-4 font-semibold">Flow Rate</th>
+                            <th class="py-3 px-4 font-semibold">Rainfall</th>
+                            <th class="py-3 px-4 font-semibold">Battery</th>
+                            <th class="py-3 px-4 font-semibold">Status</th>
+                            <th class="py-3 px-4 font-semibold">Warning Level</th>
+                        </tr>
+                    </thead>
+                    <tbody id="measurements-table-body" class="divide-y divide-slate-200 text-slate-700">
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-slate-400 italic">Select a station to view measurements</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        DEZSYS Flood Monitoring System Client &bull; Built with Spring Boot, jQuery & Tailwind CSS
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let currentFormat = 'json'; // 'json' or 'xml'
+        let stationsCache = [];
+        let selectedStationId = null;
+        let autoRefreshTimer = null;
+        const API_BASE_URL = 'http://localhost:8080/api/v1/stations';
+
+        // Initialize App on Load
+        $(document).ready(function() {
+            fetchStationsData();
+        });
+
+        // Set request data format
+        function setFormat(format) {
+            currentFormat = format;
+            if (format === 'json') {
+                $('#btn-json').addClass('bg-indigo-600 text-white shadow-sm').removeClass('text-indigo-300');
+                $('#btn-xml').removeClass('bg-indigo-600 text-white shadow-sm').addClass('text-indigo-300');
+            } else {
+                $('#btn-xml').addClass('bg-indigo-600 text-white shadow-sm').removeClass('text-indigo-300');
+                $('#btn-json').removeClass('bg-indigo-600 text-white shadow-sm').addClass('text-indigo-300');
+            }
+            fetchStationsData();
+        }
+
+        // Toggle Auto-Refresh Timer
+        function toggleAutoRefresh() {
+            const isChecked = $('#auto-refresh-toggle').is(':checked');
+            if (isChecked) {
+                autoRefreshTimer = setInterval(() => {
+                    fetchStationsData(true); // Silent refresh
+                }, 10000);
+            } else {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+        }
+
+        // Fetch Stations from Backend with Content Negotiation Headers
+        function fetchStationsData(silent = false) {
+            if (!silent) $('#station-spinner').removeClass('hidden');
+
+            const acceptHeader = currentFormat === 'xml' ? 'application/xml' : 'application/json';
+
+            $.ajax({
+                url: API_BASE_URL,
+                method: 'GET',
+                headers: {
+                    'Accept': acceptHeader
+                },
+                success: function(response, status, xhr) {
+                    hideAlert();
+                    if (!silent) $('#station-spinner').addClass('hidden');
+
+                    const contentType = xhr.getResponseHeader('Content-Type') || '';
+                    
+                    if (contentType.includes('xml') || typeof response === 'string' || response instanceof Document) {
+                        stationsCache = parseStationsXML(response);
+                    } else {
+                        stationsCache = parseStationsJSON(response);
+                    }
+
+                    updateStationDropdown();
+                    
+                    if (stationsCache.length > 0) {
+                        if (!selectedStationId || !stationsCache.some(s => s.id === selectedStationId)) {
+                            selectedStationId = stationsCache[0].id;
+                        }
+                        $('#station-select').val(selectedStationId);
+                        renderSelectedStationDetails();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    if (!silent) $('#station-spinner').addClass('hidden');
+                    let errorMsg = "Unable to connect to backend server at http://localhost:8080.";
+                    if (xhr.status === 406) {
+                        errorMsg = "Server returned 406 Not Acceptable. Format configuration issue.";
+                    } else if (xhr.responseText) {
+                        try {
+                            const errObj = JSON.parse(xhr.responseText);
+                            if (errObj.message) errorMsg = errObj.message;
+                        } catch(e) {}
+                    }
+                    showAlert("Connection Error", errorMsg);
+                }
+            });
+        }
+
+        // Robust JSON Parser
+        function parseStationsJSON(data) {
+            if (!data) return [];
+            // Handle if spring returns wrapped list or direct array
+            const list = Array.isArray(data) ? data : (data.List || data.item || []);
+            return list.map(st => ({
+                id: String(st.id || ''),
+                name: st.name || st.stationName || 'Unknown Station',
+                river: st.river || 'N/A',
+                active: st.active !== undefined ? st.active : true,
+                measurements: Array.isArray(st.measurements) ? st.measurements.map(m => ({
+                    timestamp: m.timestamp || '',
+                    waterLevel: m.waterLevel !== undefined ? m.waterLevel : 0.0,
+                    flowRate: m.flowRate !== undefined ? m.flowRate : 0.0,
+                    rainfall: m.rainfall !== undefined ? m.rainfall : 0.0,
+                    batteryLevel: m.batteryLevel !== undefined ? m.batteryLevel : 0.0,
+                    status: m.status || 'ONLINE',
+                    warningLevel: m.warningLevel || 'NORMAL'
+                })) : []
+            }));
+        }
+
+        // Robust XML DOM Parser
+        function parseStationsXML(xmlData) {
+            let xmlDoc;
+            if (typeof xmlData === 'string') {
+                const parser = new DOMParser();
+                xmlDoc = parser.parseFromString(xmlData, "application/xml");
+            } else if (xmlData instanceof Document) {
+                xmlDoc = xmlData;
+            } else {
+                return [];
+            }
+
+            const stations = [];
+            const itemNodes = xmlDoc.getElementsByTagName('item');
+            
+            for (let i = 0; i < itemNodes.length; i++) {
+                const node = itemNodes.get(i);
+                if (node.parentNode && node.parentNode.nodeName === 'List' && node.parentNode.parentNode.nodeName !== '#document') {
+                    // Avoid duplicate sub-nodes processing if not root item
+                    continue;
+                }
+            }
+
+            // Standardize traversal for Spring Jackson XML format
+            const stationElements = xmlDoc.querySelectorAll('List > item, ArrayList > item, Station, List > Station');
+            const targetElements = stationElements.length > 0 ? stationElements : xmlDoc.getElementsByTagName('item');
+
+            for (let i = 0; i < targetElements.length; i++) {
+                const el = targetElements[i];
+                const id = getTagText(el, 'id');
+                const name = getTagText(el, 'name') || getTagText(el, 'stationName');
+                const river = getTagText(el, 'river');
+                const active = getTagText(el, 'active') !== 'false';
+
+                const measurements = [];
+                const mNodes = el.querySelectorAll('measurements > item, measurements > Measurement');
+                for (let j = 0; j < mNodes.length; j++) {
+                    const mEl = mNodes[j];
+                    measurements.push({
+                        timestamp: getTagText(mEl, 'timestamp'),
+                        waterLevel: parseFloat(getTagText(mEl, 'waterLevel') || '0'),
+                        flowRate: parseFloat(getTagText(mEl, 'flowRate') || '0'),
+                        rainfall: parseFloat(getTagText(mEl, 'rainfall') || '0'),
+                        batteryLevel: parseFloat(getTagText(mEl, 'batteryLevel') || '0'),
+                        status: getTagText(mEl, 'status') || 'ONLINE',
+                        warningLevel: getTagText(mEl, 'warningLevel') || 'NORMAL'
+                    });
+                }
+
+                if (id) {
+                    stations.push({ id, name, river, active, measurements });
+                }
+            }
+
+            return stations;
+        }
+
+        function getTagText(parent, tagName) {
+            const child = parent.querySelector(tagName);
+            return child ? child.textContent.trim() : '';
+        }
+
+        // Update Station Dropdown Options
+        function updateStationDropdown() {
+            const $select = $('#station-select');
+            $select.empty();
+            if (stationsCache.length === 0) {
+                $select.append('<option value="">No stations available</option>');
+                return;
+            }
+            stationsCache.forEach(st => {
+                $select.append(`<option value="${st.id}">${st.name} (ID: ${st.id})</option>`);
+            });
+            $select.val(selectedStationId);
+        }
+
+        // Handle Station Change
+        function onStationChanged() {
+            selectedStationId = $('#station-select').val();
+            renderSelectedStationDetails();
+        }
+
+        // Render Cards and Measurements Table for Selected Station
+        function renderSelectedStationDetails() {
+            const station = stationsCache.find(s => s.id === selectedStationId);
+            if (!station) {
+                clearDetailsView();
+                return;
+            }
+
+            $('#info-river').text(station.river);
+
+            const measurements = station.measurements || [];
+            if (measurements.length === 0) {
+                $('#info-status').text('-');
+                $('#info-battery').text('-');
+                updateWarningBadge('#info-warning', 'UNKNOWN');
+                $('#measurements-table-body').html(`<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">No measurements recorded for this station.</td></tr>`);
+                $('#record-count').text('0 records');
+                return;
+            }
+
+            // Latest measurement is usually at the end of the list
+            const latest = measurements[measurements.length - 1];
+            $('#info-status').text(latest.status);
+            $('#info-battery').text(latest.batteryLevel + '%');
+            updateWarningBadge('#info-warning', latest.warningLevel);
+
+            applyFilters();
+        }
+
+        // Filter and Render Historical Measurements Table
+        function applyFilters() {
+            const station = stationsCache.find(s => s.id === selectedStationId);
+            if (!station || !station.measurements) return;
+
+            const fromVal = $('#filter-from').val();
+            const toVal = $('#filter-to').val();
+            const warningVal = $('#filter-warning').val();
+
+            let filtered = station.measurements.filter(m => {
+                if (warningVal && m.warningLevel !== warningVal) return false;
+                if (fromVal && m.timestamp < fromVal) return false;
+                if (toVal && m.timestamp > toVal) return false;
+                return true;
+            });
+
+            const $tbody = $('#measurements-table-body');
+            $tbody.empty();
+
+            if (filtered.length === 0) {
+                $tbody.html(`<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">No matching records found for the selected filters.</td></tr>`);
+                $('#record-count').text('0 records');
+                return;
+            }
+
+            // Display in reverse chronological order (newest first)
+            const sorted = [...filtered].reverse();
+            let html = '';
+
+            sorted.forEach(m => {
+                const formattedTime = m.timestamp ? m.timestamp.replace('T', ' ') : '-';
+                const badgeClass = getBadgeClass(m.warningLevel);
+
+                html += `<tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                    <td class="py-3 px-4 font-medium text-slate-900">${station.name}</td>
+                    <td class="py-3 px-4 text-slate-600">${formattedTime}</td>
+                    <td class="py-3 px-4 font-semibold">${m.waterLevel} cm</td>
+                    <td class="py-3 px-4">${m.flowRate} m³/s</td>
+                    <td class="py-3 px-4">${m.rainfall} mm/h</td>
+                    <td class="py-3 px-4">${m.batteryLevel}%</td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">${m.status}</span></td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs font-bold ${badgeClass}">${m.warningLevel}</span></td>
+                </tr>`;
+            });
+
+            $tbody.html(html);
+            $('#record-count').text(`${sorted.length} record(s)`);
+        }
+
+        function resetFilters() {
+            $('#filter-from').val('');
+            $('#filter-to').val('');
+            $('#filter-warning').val('');
+            applyFilters();
+        }
+
+        // Warning Level Badge Styling helper
+        function getBadgeClass(level) {
+            switch((level || '').toUpperCase()) {
+                case 'NORMAL': return 'badge-normal';
+                case 'WARNING': return 'badge-warning';
+                case 'CRITICAL': return 'badge-critical';
+                default: return 'badge-unknown';
+            }
+        }
+
+        function updateWarningBadge(selector, level) {
+            const $el = $(selector);
+            $el.text(level);
+            $el.removeClass('badge-normal badge-warning badge-critical badge-unknown');
+            $el.addClass(getBadgeClass(level));
+        }
+
+        function clearDetailsView() {
+            $('#info-river').text('-');
+            $('#info-status').text('-');
+            $('#info-battery').text('-');
+            updateWarningBadge('#info-warning', 'UNKNOWN');
+            $('#measurements-table-body').html(`<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">No station selected</td></tr>`);
+            $('#record-count').text('0 records');
+        }
+
+        function showAlert(title, message) {
+            $('#alert-title').text(title + ':');
+            $('#alert-message').text(' ' + message);
+            $('#alert-banner').removeClass('hidden');
+        }
+
+        function hideAlert() {
+            $('#alert-banner').addClass('hidden');
+        }
+    </script>
+</body>
+</html>
