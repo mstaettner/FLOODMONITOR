@@ -42,9 +42,44 @@ Beispiel:
 GET /api/v1/stations/1/measurements?from=2026-10-01T08:00:00Z&to=2026-10-31T12:00:00Z&limit=100&warningLevel=WARNING
 ```
 
+Beispiel für den neuesten Messwert (`GET /api/v1/stations/1/measurements/latest`):
+
+```http
+Accept: application/json
+```
+
+```json
+{
+  "timestamp": "2026-10-31T12:00:00",
+  "waterLevel": 318.4,
+  "flowRate": 28.4,
+  "rainfall": 12.7,
+  "temperature": 14.3,
+  "batteryLevel": 87.0,
+  "status": "ONLINE",
+  "warningLevel": "WARNING"
+}
+```
+
+Mit `Accept: application/xml` enthält dieselbe Antwort dieselben Felder:
+
+```xml
+<measurement>
+  <timestamp>2026-10-31T12:00:00</timestamp>
+  <waterLevel>318.4</waterLevel>
+  <flowRate>28.4</flowRate>
+  <rainfall>12.7</rainfall>
+  <temperature>14.3</temperature>
+  <batteryLevel>87.0</batteryLevel>
+  <status>ONLINE</status>
+  <warningLevel>WARNING</warningLevel>
+</measurement>
+```
+
 Ungültige Datumswerte, `from` nach `to`, unbekannte Warnstufen und Limits außerhalb 1–500 ergeben `400`. Unbekannte Stations-IDs ergeben `404`, nicht unterstützte Accept-Formate `406`. Fehlerantworten enthalten Zeitstempel, Status, Meldung und Pfad; interne Ausnahmen geben keine Stacktraces an den Client zurück. Die API implementiert keine Authentifizierung.
 
 OpenAPI/Swagger UI: <http://localhost:8080/swagger-ui.html>; JSON-Spezifikation: <http://localhost:8080/v3/api-docs>.
+Die Antworten auf die Fragestellungen mit Quellverweisen stehen in [docs/Abgabegespraech.md](docs/Abgabegespraech.md).
 
 ## Webclient und Abgabeunterlagen
 

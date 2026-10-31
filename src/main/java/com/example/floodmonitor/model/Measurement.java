@@ -1,7 +1,9 @@
 package com.example.floodmonitor.model;
 
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import java.time.LocalDateTime;
 
+@JacksonXmlRootElement(localName = "measurement")
 public class Measurement {
     private LocalDateTime timestamp;
     private double waterLevel; // in cm
