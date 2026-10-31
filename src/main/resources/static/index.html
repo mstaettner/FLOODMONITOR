@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="de" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -373,40 +373,72 @@
 
             $('#info-river').text(station.river);
 
-            const measurements = station.measurements || [];
-            if (measurements.length === 0) {
-                $('#info-status').text('-');
-                $('#info-battery').text('-');
-                updateWarningBadge('#info-warning', 'UNKNOWN');
-                $('#measurements-table-body').html(`<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">No measurements recorded for this station.</td></tr>`);
-                $('#record-count').text('0 records');
-                return;
-            }
-
-            // Latest measurement is usually at the end of the list
-            const latest = measurements[measurements.length - 1];
-            $('#info-status').text(latest.status);
-            $('#info-battery').text(latest.batteryLevel + '%');
-            updateWarningBadge('#info-warning', latest.warningLevel);
-
+            fetchLatestMeasurement();
             applyFilters();
+        }
+
+        function fetchLatestMeasurement() {
+            $.ajax({
+                url: `${API_BASE_URL}/${selectedStationId}/measurements/latest`,
+                headers: { Accept: currentFormat === 'xml' ? 'application/xml' : 'application/json' },
+                success: function(data, status, xhr) {
+                    const latest = xhr.getResponseHeader('Content-Type')?.includes('xml') ? parseMeasurementXML(data) : data;
+                    if (!latest) return;
+                    $('#info-status').text(latest.status);
+                    $('#info-battery').text(latest.batteryLevel + '%');
+                    updateWarningBadge('#info-warning', latest.warningLevel);
+                },
+                error: function(xhr) { showAlert('Messwertfehler', xhr.responseJSON?.message || 'Aktueller Messwert konnte nicht geladen werden.'); }
+            });
+        }
+
+        function parseMeasurementXML(xml) {
+            const doc = typeof xml === 'string' ? new DOMParser().parseFromString(xml, 'application/xml') : xml;
+            if (!doc || doc.querySelector('parsererror')) return null;
+            const value = name => doc.querySelector(name)?.textContent?.trim() || '';
+            return { timestamp: value('timestamp'), waterLevel: Number(value('waterLevel')), flowRate: Number(value('flowRate')),
+                rainfall: Number(value('rainfall')), temperature: Number(value('temperature')), batteryLevel: Number(value('batteryLevel')),
+                status: value('status'), warningLevel: value('warningLevel') };
         }
 
         // Filter and Render Historical Measurements Table
         function applyFilters() {
             const station = stationsCache.find(s => s.id === selectedStationId);
-            if (!station || !station.measurements) return;
+            if (!station) return;
 
             const fromVal = $('#filter-from').val();
             const toVal = $('#filter-to').val();
             const warningVal = $('#filter-warning').val();
 
-            let filtered = station.measurements.filter(m => {
-                if (warningVal && m.warningLevel !== warningVal) return false;
-                if (fromVal && m.timestamp < fromVal) return false;
-                if (toVal && m.timestamp > toVal) return false;
-                return true;
+            const params = {};
+            if (fromVal) params.from = fromVal;
+            if (toVal) params.to = toVal;
+            if (warningVal) params.warningLevel = warningVal;
+            params.limit = 500;
+            $.ajax({
+                url: `${API_BASE_URL}/${selectedStationId}/measurements`,
+                data: params,
+                headers: { Accept: currentFormat === 'xml' ? 'application/xml' : 'application/json' },
+                success: function(data, status, xhr) {
+                    let measurements = data;
+                    if (xhr.getResponseHeader('Content-Type')?.includes('xml')) {
+                        const doc = typeof data === 'string' ? new DOMParser().parseFromString(data, 'application/xml') : data;
+                        measurements = [...doc.querySelectorAll('item, Measurement')].filter(el => el.querySelector('waterLevel'))
+                            .map(el => { const read = n => el.querySelector(n)?.textContent?.trim() || ''; return {
+                                timestamp: read('timestamp'), waterLevel: Number(read('waterLevel')), flowRate: Number(read('flowRate')),
+                                rainfall: Number(read('rainfall')), batteryLevel: Number(read('batteryLevel')), status: read('status'), warningLevel: read('warningLevel')
+                            }; });
+                    }
+                    renderMeasurements(Array.isArray(measurements) ? measurements : [], station);
+                    hideAlert();
+                },
+                error: function(xhr) {
+                    showAlert('Filterfehler', xhr.responseJSON?.message || 'Messwerthistorie konnte nicht geladen werden.');
+                }
             });
+        }
+
+        function renderMeasurements(filtered, station) {
 
             const $tbody = $('#measurements-table-body');
             $tbody.empty();
@@ -418,7 +450,7 @@
             }
 
             // Display in reverse chronological order (newest first)
-            const sorted = [...filtered].reverse();
+            const sorted = filtered;
             let html = '';
 
             sorted.forEach(m => {
