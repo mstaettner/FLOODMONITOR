@@ -95,7 +95,14 @@ class StationControllerTest {
     }
 
     @Test void unsupportedFormatReturns406() throws Exception {
-        mockMvc.perform(get("/api/v1/stations").accept(MediaType.APPLICATION_PDF)).andExpect(status().isNotAcceptable());
+        mockMvc.perform(get("/api/v1/stations").accept(MediaType.APPLICATION_PDF))
+                .andExpect(status().isNotAcceptable()).andExpect(jsonPath("$.status", is(406)));
+    }
+
+    @Test void unsupportedRequestMediaTypeReturns415() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/stations")
+                        .contentType(MediaType.APPLICATION_PDF).content("payload"))
+                .andExpect(status().isUnsupportedMediaType()).andExpect(jsonPath("$.status", is(415)));
     }
 
     @Test void limitAboveMaximumReturns400() throws Exception {
