@@ -126,4 +126,35 @@ class StationControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.CRITICAL,
                 service.calculateWarningLevel(thresholds, 350.0, null, 0, StationStatus.ONLINE));
     }
+
+    @Test void alertsIncludeEveryWarningLevelAndUnknownStations() {
+        StationRepository repository = new StationRepository();
+        SimulationService service = new SimulationService(repository);
+        addAlertStation(service, "N", "TestRiver", 150, StationStatus.ONLINE);
+        addAlertStation(service, "W", "TestRiver", 250, StationStatus.ONLINE);
+        addAlertStation(service, "C", "TestRiver", 350, StationStatus.ONLINE);
+        addAlertStation(service, "O", "TestRiver", 150, StationStatus.OFFLINE);
+        service.addStation(new Station("E", "Empty", "TestRiver", new Location(0, 0), 100, 200, 300, true));
+
+        var alerts = service.getAlerts("TestRiver");
+        org.junit.jupiter.api.Assertions.assertEquals(5, alerts.size());
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.NORMAL, alertLevel(alerts, "N"));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.WARNING, alertLevel(alerts, "W"));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.CRITICAL, alertLevel(alerts, "C"));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.UNKNOWN, alertLevel(alerts, "O"));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.UNKNOWN, alertLevel(alerts, "E"));
+    }
+
+    private void addAlertStation(SimulationService service, String id, String river,
+                                 double waterLevel, StationStatus status) {
+        Station candidate = new Station(id, id, river, new Location(0, 0), 100, 200, 300, true);
+        candidate.getMeasurements().add(new Measurement(LocalDateTime.parse("2026-10-31T12:00:00"),
+                waterLevel, 10, 0, 15, 90, status, WarningLevel.UNKNOWN));
+        service.addStation(candidate);
+    }
+
+    private WarningLevel alertLevel(List<StationAlert> alerts, String stationId) {
+        return alerts.stream().filter(alert -> alert.getStationId().equals(stationId))
+                .findFirst().orElseThrow().getWarningLevel();
+    }
 }

@@ -33,7 +33,7 @@ Alle GET-Routen unterstützen `Accept: application/json` (Standard) und `Accept:
 | GET | `/api/v1/stations/{id}/measurements/latest` | Neuester Messwert |
 | GET | `/api/v1/stations/{id}/measurements` | Historie; `from`, `to`, `limit` (1–500), `warningLevel` |
 | GET | `/api/v1/stations/{id}/measurements/statistics` | Minimum/Maximum/Mittelwerte, Niederschlagssumme und Warnungszahlen |
-| GET | `/api/v1/alerts` | Stationen, deren neueste Messung `WARNING` oder `CRITICAL` ist; optionaler Filter `river` |
+| GET | `/api/v1/alerts` | Jede Station mit neuestem Messwert und berechneter Stufe `NORMAL`, `WARNING`, `CRITICAL` oder `UNKNOWN`; optionaler Filter `river` |
 | POST | `/api/v1/stations` | Station als JSON oder XML anlegen |
 
 Beispiel:

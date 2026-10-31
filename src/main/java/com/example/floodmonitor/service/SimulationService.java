@@ -197,18 +197,25 @@ public class SimulationService {
                 averageFlow, totalRainfall, measurements.size(), warningCount, criticalCount);
     }
 
-    public List<Station> getAlerts(String river) {
+    public List<StationAlert> getAlerts(String river) {
         return stationRepository.findAll().stream()
-                .filter(station -> river == null || river.isBlank() || station.getRiver().equalsIgnoreCase(river))
-                .filter(station -> latestMeasurement(station).map(measurement -> {
-                    WarningLevel level = measurement.getWarningLevel();
-                    return level == WarningLevel.WARNING || level == WarningLevel.CRITICAL;
-                }).orElse(false))
+                .filter(station -> river == null || river.isBlank()
+                        || (station.getRiver() != null && station.getRiver().equalsIgnoreCase(river)))
+                .map(station -> {
+                    Measurement current = latestMeasurement(station).orElse(null);
+                    WarningLevel level = WarningLevel.UNKNOWN;
+                    if (current != null && current.getTimestamp() != null && current.getStatus() != null) {
+                        level = calculateWarningLevel(station, current.getWaterLevel(), null,
+                                current.getRainfall(), current.getStatus());
+                    }
+                    return new StationAlert(station.getId(), station.getName(), station.getRiver(), current, level);
+                })
                 .collect(Collectors.toList());
     }
 
     private Optional<Measurement> latestMeasurement(Station station) {
-        return station.getMeasurements().stream().max(Comparator.comparing(Measurement::getTimestamp));
+        return station.getMeasurements().stream().max(Comparator.comparing(Measurement::getTimestamp,
+                Comparator.nullsFirst(Comparator.naturalOrder())));
     }
 
     public Station addStation(Station station) {

@@ -5,6 +5,7 @@ import com.example.floodmonitor.model.Station;
 import com.example.floodmonitor.model.Measurement;
 import com.example.floodmonitor.model.WarningLevel;
 import com.example.floodmonitor.model.MeasurementStatistics;
+import com.example.floodmonitor.model.StationAlert;
 import com.example.floodmonitor.service.SimulationService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -119,9 +120,9 @@ public class StationController {
         return simulationService.getMeasurements(id, fromTime, toTime, limit, warningLevel);
     }
 
-    @Operation(summary = "Aktuelle Warnungen abrufen", description = "Liefert Stationen, deren aktuellste Messung WARNING oder CRITICAL ist. Optional nach Fluss filtern.")
+    @Operation(summary = "Aktuelle Warnstufen aller Stationen abrufen", description = "Liefert für jede Station den aktuellsten Messwert und die serverseitig berechnete Warnstufe NORMAL, WARNING, CRITICAL oder UNKNOWN. Optional nach Fluss filtern.")
     @GetMapping(value = "/alerts", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public List<Station> getAlerts(@RequestParam(required = false) String river) {
+    public List<StationAlert> getAlerts(@RequestParam(required = false) String river) {
         return simulationService.getAlerts(river);
     }
 
