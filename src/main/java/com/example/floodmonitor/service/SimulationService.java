@@ -197,13 +197,12 @@ public class SimulationService {
                 averageFlow, totalRainfall, measurements.size(), warningCount, criticalCount);
     }
 
-    public List<Station> getAlerts(String river, WarningLevel warningLevel) {
+    public List<Station> getAlerts(String river) {
         return stationRepository.findAll().stream()
                 .filter(station -> river == null || river.isBlank() || station.getRiver().equalsIgnoreCase(river))
                 .filter(station -> latestMeasurement(station).map(measurement -> {
                     WarningLevel level = measurement.getWarningLevel();
-                    return warningLevel == null ? level == WarningLevel.WARNING || level == WarningLevel.CRITICAL
-                            : level == warningLevel;
+                    return level == WarningLevel.WARNING || level == WarningLevel.CRITICAL;
                 }).orElse(false))
                 .collect(Collectors.toList());
     }

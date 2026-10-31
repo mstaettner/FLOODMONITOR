@@ -119,11 +119,10 @@ public class StationController {
         return simulationService.getMeasurements(id, fromTime, toTime, limit, warningLevel);
     }
 
-    @Operation(summary = "Aktuelle Warnungen abrufen")
+    @Operation(summary = "Aktuelle Warnungen abrufen", description = "Liefert Stationen, deren aktuellste Messung WARNING oder CRITICAL ist. Optional nach Fluss filtern.")
     @GetMapping(value = "/alerts", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public List<Station> getAlerts(@RequestParam(required = false) WarningLevel warningLevel,
-                                   @RequestParam(required = false) String river) {
-        return simulationService.getAlerts(river, warningLevel);
+    public List<Station> getAlerts(@RequestParam(required = false) String river) {
+        return simulationService.getAlerts(river);
     }
 
     @Operation(summary = "Statistik einer Station abrufen")
