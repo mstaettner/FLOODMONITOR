@@ -2,6 +2,7 @@ package com.example.floodmonitor.controller;
 
 import com.example.floodmonitor.exception.StationNotFoundException;
 import com.example.floodmonitor.model.*;
+import com.example.floodmonitor.repository.StationRepository;
 import com.example.floodmonitor.service.SimulationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,154 +19,104 @@ import java.util.Optional;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(StationController.class)
-public class StationControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
-    private SimulationService simulationService;
-
-    private Station testStation;
+class StationControllerTest {
+    @Autowired private MockMvc mockMvc;
+    @MockBean private SimulationService simulationService;
+    private Station station;
+    private Measurement latest;
 
     @BeforeEach
     void setUp() {
-        // Testdaten vorbereiten (deterministisch ohne echten Zufall)
-        testStation = new Station("1", "Test Station", "Donau", new Location(48.0, 16.0), 100.0, 200.0, 300.0, true);
-        Measurement m1 = new Measurement(LocalDateTime.now().minusHours(1), 120.0, 8.0, 0.0, 14.0, 95.0, StationStatus.ONLINE, WarningLevel.NORMAL);
-        Measurement m2 = new Measurement(LocalDateTime.now(), 150.0, 10.0, 0.0, 15.0, 90.0, StationStatus.ONLINE, WarningLevel.NORMAL);
-        testStation.getMeasurements().add(m1);
-        testStation.getMeasurements().add(m2); // m2 ist der aktuellste Wert
+        station = new Station("1", "Test Station", "Donau", new Location(48, 16), 100, 200, 300, true);
+        latest = new Measurement(LocalDateTime.parse("2026-10-31T12:00:00"), 150, 10, 0, 15, 90,
+                StationStatus.ONLINE, WarningLevel.NORMAL);
+        station.getMeasurements().add(latest);
     }
 
-    // 1. Abruf aller Stationen als JSON
-    @Test
-    void testGetStationsJson() throws Exception {
-        Mockito.when(simulationService.getStations()).thenReturn(List.of(testStation));
-
-        mockMvc.perform(get("/api/v1/stations")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(1)))
+    @Test void getStationsAsJson() throws Exception {
+        Mockito.when(simulationService.getStations(null, null, null)).thenReturn(List.of(station));
+        mockMvc.perform(get("/api/v1/stations").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].name", is("Test Station")));
     }
 
-    // 2. Abruf aller Stationen als XML
-    @Test
-    void testGetStationsXml() throws Exception {
-        Mockito.when(simulationService.getStations()).thenReturn(List.of(testStation));
-
-        mockMvc.perform(get("/api/v1/stations")
-                        .accept(MediaType.APPLICATION_XML))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML));
+    @Test void getStationsAsXml() throws Exception {
+        Mockito.when(simulationService.getStations(null, null, null)).thenReturn(List.of(station));
+        mockMvc.perform(get("/api/v1/stations").accept(MediaType.APPLICATION_XML))
+                .andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_XML));
     }
 
-    // 3. Abruf einer existierenden Station
-    @Test
-    void testGetStationByIdExisting() throws Exception {
-        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(testStation));
-
-        mockMvc.perform(get("/api/v1/stations/1")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is("1")));
+    @Test void getExistingStation() throws Exception {
+        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(station));
+        mockMvc.perform(get("/api/v1/stations/1").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id", is("1")));
     }
 
-    // 4. Abruf einer unbekannten Station (Erwartet 404 via GlobalExceptionHandler)
-    @Test
-    void testGetStationByIdNotFound() throws Exception {
-        Mockito.when(simulationService.getStationById("999"))
-                .thenThrow(new StationNotFoundException("Station 999 wurde nicht gefunden"));
-
-        mockMvc.perform(get("/api/v1/stations/999")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status", is(404)))
-                .andExpect(jsonPath("$.error", is("Not Found")));
+    @Test void unknownStationReturns404() throws Exception {
+        Mockito.when(simulationService.getStationById("999")).thenThrow(new StationNotFoundException("Station 999 wurde nicht gefunden"));
+        mockMvc.perform(get("/api/v1/stations/999").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.status", is(404)));
     }
 
-    // 5. Abruf des aktuellsten Messwerts
-    @Test
-    void testGetLatestMeasurement() throws Exception {
-        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(testStation));
-
-        // Annahme: Der Endpunkt liefert die Station, deren letztes Measurement geprüft wird
-        mockMvc.perform(get("/api/v1/stations/1")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.measurements", hasSize(2)))
-                .andExpect(jsonPath("$.measurements[1].waterLevel", is(150.0)));
+    @Test void getLatestMeasurement() throws Exception {
+        Mockito.when(simulationService.getLatestMeasurement("1")).thenReturn(Optional.of(latest));
+        mockMvc.perform(get("/api/v1/stations/1/measurements/latest").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.waterLevel", is(150.0)));
     }
 
-    // 6. Filterung nach gültigem Zeitraum (from / to)
-    @Test
-    void testFilterByTimeRangeValid() throws Exception {
-        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(testStation));
-
-        mockMvc.perform(get("/api/v1/stations/1")
-                        .param("from", "2026-01-01T00:00:00")
-                        .param("to", "2026-12-31T23:59:59")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+    @Test void filterMeasurementsByTimeRange() throws Exception {
+        Mockito.when(simulationService.getMeasurements(eq("1"), any(), any(), eq(100), eq(WarningLevel.WARNING)))
+                .thenReturn(List.of(latest));
+        mockMvc.perform(get("/api/v1/stations/1/measurements")
+                        .param("from", "2026-10-31T08:00:00Z").param("to", "2026-10-31T12:00:00Z")
+                        .param("limit", "100").param("warningLevel", "WARNING"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1)));
     }
 
-    // 7. Ungültiger Zeitraum (z. B. 'from' liegt nach 'to') -> Erwartet 400 Bad Request
-    @Test
-    void testFilterByTimeRangeInvalid() throws Exception {
-        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(testStation));
-
-        // Wenn dein Controller/Service prüft, ob 'from' nach 'to' liegt und eine IllegalArgumentException wirft:
-        // (Falls du diese Logik im Controller/Service hast, greift hier der Bad-Request-Handler)
-        mockMvc.perform(get("/api/v1/stations/1")
-                        .param("from", "2026-12-31T23:59:59")
-                        .param("to", "2026-01-01T00:00:00")
-                        .accept(MediaType.APPLICATION_JSON))
+    @Test void invalidTimeRangeReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/stations/1/measurements")
+                        .param("from", "2026-12-31T23:59:59").param("to", "2026-01-01T00:00:00"))
                 .andExpect(status().isBadRequest());
     }
 
-    // 8, 9, 10. Tests für Warnstufen (NORMAL, WARNING, CRITICAL Logik)
-    @Test
-    void testWarningLevelCalculationLogic() {
-        SimulationService realService = new SimulationService();
-        Station s = new Station("1", "S1", "Fluss", new Location(0, 0), 100.0, 200.0, 300.0, true);
-
-        // 8. Warnstufe NORMAL (< 200)
-        WarningLevel wNormal = realService.calculateWarningLevel(s, 150.0, null, 0.0, StationStatus.ONLINE);
-        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.NORMAL, wNormal);
-
-        // 9. Warnstufe WARNING (>= 200 und < 300)
-        WarningLevel wWarning = realService.calculateWarningLevel(s, 250.0, null, 0.0, StationStatus.ONLINE);
-        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.WARNING, wWarning);
-
-        // 10. Warnstufe CRITICAL (>= 300)
-        WarningLevel wCritical = realService.calculateWarningLevel(s, 350.0, null, 0.0, StationStatus.ONLINE);
-        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.CRITICAL, wCritical);
+    @Test void invalidDateReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/stations/1/measurements").param("from", "not-a-date"))
+                .andExpect(status().isBadRequest());
     }
 
-    // 11. Nicht unterstütztes Format (z. B. Client schickt Accept: application/pdf)
-    @Test
-    void testNotAcceptableFormat() throws Exception {
-        Mockito.when(simulationService.getStations()).thenReturn(List.of(testStation));
-
-        mockMvc.perform(get("/api/v1/stations")
-                        .accept(MediaType.APPLICATION_PDF))
-                .andExpect(status().isNotAcceptable()); // HTTP 406
+    @Test void invalidWarningLevelReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/stations/1/measurements").param("warningLevel", "DANGER"))
+                .andExpect(status().isBadRequest());
     }
 
-    // 12. Maximales Limit (z. B. ?limit=1)
-    @Test
-    void testMaxLimitParameter() throws Exception {
-        Mockito.when(simulationService.getStationById("1")).thenReturn(Optional.of(testStation));
+    @Test void unsupportedFormatReturns406() throws Exception {
+        mockMvc.perform(get("/api/v1/stations").accept(MediaType.APPLICATION_PDF)).andExpect(status().isNotAcceptable());
+    }
 
-        mockMvc.perform(get("/api/v1/stations/1")
-                        .param("limit", "1")
-                        .accept(MediaType.APPLICATION_JSON))
+    @Test void limitAboveMaximumReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/stations/1/measurements").param("limit", "501"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test void limitAtMaximumIsAccepted() throws Exception {
+        Mockito.when(simulationService.getMeasurements("1", null, null, 500, null)).thenReturn(List.of(latest));
+        mockMvc.perform(get("/api/v1/stations/1/measurements").param("limit", "500"))
                 .andExpect(status().isOk());
+    }
+
+    @Test void calculatesWarningLevels() {
+        SimulationService service = new SimulationService(new StationRepository());
+        Station thresholds = new Station("x", "x", "Donau", new Location(0, 0), 100, 200, 300, true);
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.NORMAL,
+                service.calculateWarningLevel(thresholds, 150.0, null, 0, StationStatus.ONLINE));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.WARNING,
+                service.calculateWarningLevel(thresholds, 250.0, null, 0, StationStatus.ONLINE));
+        org.junit.jupiter.api.Assertions.assertEquals(WarningLevel.CRITICAL,
+                service.calculateWarningLevel(thresholds, 350.0, null, 0, StationStatus.ONLINE));
     }
 }

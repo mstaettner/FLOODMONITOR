@@ -1,5 +1,6 @@
 package com.example.floodmonitor.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +60,7 @@ public class Station {
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
 
+    @JsonIgnore
     public List<Measurement> getMeasurements() { return measurements; }
     public void setMeasurements(List<Measurement> measurements) { this.measurements = measurements; }
 }

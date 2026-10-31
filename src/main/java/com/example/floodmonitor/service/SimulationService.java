@@ -3,19 +3,26 @@ package com.example.floodmonitor.service;
 import com.example.floodmonitor.model.StationStatus;
 import com.example.floodmonitor.model.WarningLevel;
 import com.example.floodmonitor.model.*;
+import com.example.floodmonitor.repository.StationRepository;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SimulationService {
 
-    private final List<Station> stations = new ArrayList<>();
+    private final StationRepository stationRepository;
     private final Random random = new Random();
+    @Value("${simulation.enabled:true}")
+    private boolean simulationEnabled = true;
 
-    public SimulationService() {
+    public SimulationService(StationRepository stationRepository) {
+        this.stationRepository = stationRepository;
         initStations();
     }
 
@@ -26,18 +33,25 @@ public class SimulationService {
         Location loc2 = new Location(48.3069, 14.2858);
         Station linz = new Station("2", "Station Linz", "Donau", loc2, 120.0, 250.0, 380.0, true);
 
-        stations.add(vienna);
-        stations.add(linz);
+        Location loc3 = new Location(47.8095, 13.0550);
+        Station salzburg = new Station("3", "Station Salzburg", "Salzach", loc3, 90.0, 190.0, 290.0, true);
+
+        stationRepository.save(vienna);
+        stationRepository.save(linz);
+        stationRepository.save(salzburg);
 
         // Ersten Initial-Messwert erzeugen
-        for (Station s : stations) {
+        for (Station s : stationRepository.findAll()) {
             generateNextMeasurement(s);
         }
     }
 
     @Scheduled(fixedRateString = "${simulation.interval:10000}")
     public void runSimulationCycle() {
-        for (Station station : stations) {
+        if (!simulationEnabled) {
+            return;
+        }
+        for (Station station : stationRepository.findAll()) {
             if (!station.isActive()) {
                 continue;
             }
@@ -45,7 +59,7 @@ public class SimulationService {
             List<Measurement> measurements = station.getMeasurements();
             if (!measurements.isEmpty()) {
                 Measurement last = measurements.get(measurements.size() - 1);
-                if (last.getStatus() == StationStatus.OFFLINE) {
+                if (last.getStatus() != StationStatus.ONLINE) {
                     continue;
                 }
             }
@@ -83,7 +97,7 @@ public class SimulationService {
         WarningLevel warningLevel = calculateWarningLevel(station, currentWaterLevel, prev, rainfall, status);
 
         Measurement newMeasurement = new Measurement(
-                LocalDateTime.now(),
+                LocalDateTime.now(ZoneOffset.UTC),
                 currentWaterLevel,
                 flowRate,
                 rainfall,
@@ -131,16 +145,76 @@ public class SimulationService {
     }
 
     public List<Station> getStations() {
-        return stations;
+        return stationRepository.findAll();
+    }
+
+    public List<Station> getStations(String river, Boolean active, WarningLevel warningLevel) {
+        return stationRepository.findAll().stream()
+                .filter(station -> river == null || river.isBlank() || station.getRiver().equalsIgnoreCase(river))
+                .filter(station -> active == null || station.isActive() == active)
+                .filter(station -> warningLevel == null || latestMeasurement(station)
+                        .map(measurement -> measurement.getWarningLevel() == warningLevel).orElse(warningLevel == WarningLevel.UNKNOWN))
+                .collect(Collectors.toList());
     }
 
     public Optional<Station> getStationById(String id) {
-        return stations.stream().filter(s -> s.getId().equals(id)).findFirst();
+        return stationRepository.findById(id);
+    }
+
+    public List<Measurement> getMeasurements(String id, LocalDateTime from, LocalDateTime to,
+                                             Integer limit, WarningLevel warningLevel) {
+        Station station = getStationById(id)
+                .orElseThrow(() -> new com.example.floodmonitor.exception.StationNotFoundException("Station " + id + " wurde nicht gefunden"));
+        return station.getMeasurements().stream()
+                .filter(measurement -> from == null || !measurement.getTimestamp().isBefore(from))
+                .filter(measurement -> to == null || !measurement.getTimestamp().isAfter(to))
+                .filter(measurement -> warningLevel == null || measurement.getWarningLevel() == warningLevel)
+                .sorted(Comparator.comparing(Measurement::getTimestamp).reversed())
+                .limit(limit == null ? Long.MAX_VALUE : limit)
+                .collect(Collectors.toList());
+    }
+
+    public Optional<Measurement> getLatestMeasurement(String id) {
+        Station station = getStationById(id)
+                .orElseThrow(() -> new com.example.floodmonitor.exception.StationNotFoundException("Station " + id + " wurde nicht gefunden"));
+        return latestMeasurement(station);
+    }
+
+    public MeasurementStatistics getStatistics(String id) {
+        Station station = getStationById(id)
+                .orElseThrow(() -> new com.example.floodmonitor.exception.StationNotFoundException("Station " + id + " wurde nicht gefunden"));
+        List<Measurement> measurements = station.getMeasurements();
+        if (measurements.isEmpty()) {
+            throw new com.example.floodmonitor.exception.StationNotFoundException("Für Station " + id + " existieren noch keine Messungen");
+        }
+        DoubleSummaryStatistics waterLevels = measurements.stream().mapToDouble(Measurement::getWaterLevel).summaryStatistics();
+        double averageFlow = measurements.stream().mapToDouble(Measurement::getFlowRate).average().orElse(0.0);
+        double totalRainfall = measurements.stream().mapToDouble(Measurement::getRainfall).sum();
+        long warningCount = measurements.stream().filter(m -> m.getWarningLevel() == WarningLevel.WARNING
+                || m.getWarningLevel() == WarningLevel.CRITICAL).count();
+        long criticalCount = measurements.stream().filter(m -> m.getWarningLevel() == WarningLevel.CRITICAL).count();
+        return new MeasurementStatistics(waterLevels.getMin(), waterLevels.getMax(), waterLevels.getAverage(),
+                averageFlow, totalRainfall, measurements.size(), warningCount, criticalCount);
+    }
+
+    public List<Station> getAlerts(String river, WarningLevel warningLevel) {
+        return stationRepository.findAll().stream()
+                .filter(station -> river == null || river.isBlank() || station.getRiver().equalsIgnoreCase(river))
+                .filter(station -> latestMeasurement(station).map(measurement -> {
+                    WarningLevel level = measurement.getWarningLevel();
+                    return warningLevel == null ? level == WarningLevel.WARNING || level == WarningLevel.CRITICAL
+                            : level == warningLevel;
+                }).orElse(false))
+                .collect(Collectors.toList());
+    }
+
+    private Optional<Measurement> latestMeasurement(Station station) {
+        return station.getMeasurements().stream().max(Comparator.comparing(Measurement::getTimestamp));
     }
 
     public Station addStation(Station station) {
         if (station.getId() == null || station.getId().isBlank()) {
-            station.setId(String.valueOf(stations.size() + 1));
+            station.setId(String.valueOf(stationRepository.findAll().size() + 1));
         }
 
         // Falls der Client eine Messung mitgeschickt hat: Warnstufe serverseitig erzwingen/berechnen
@@ -158,7 +232,6 @@ public class SimulationService {
             last.setWarningLevel(calculated);
         }
 
-        stations.add(station);
-        return station;
+        return stationRepository.save(station);
     }
 }

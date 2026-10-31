@@ -11,15 +11,15 @@ import java.util.Optional;
 public class StationRepository {
     private final List<Station> stations = new ArrayList<>();
 
-    public List<Station> findAll() {
-        return stations;
+    public synchronized List<Station> findAll() {
+        return new ArrayList<>(stations);
     }
 
-    public Optional<Station> findById(String id) {
+    public synchronized Optional<Station> findById(String id) {
         return stations.stream().filter(s -> s.getId().equals(id)).findFirst();
     }
 
-    public Station save(Station station) {
+    public synchronized Station save(Station station) {
         if (station.getId() == null || station.getId().isBlank()) {
             station.setId(String.valueOf(stations.size() + 1));
         }

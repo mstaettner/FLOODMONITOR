@@ -1,7 +1,9 @@
 package com.example.floodmonitor.exception;
 
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import java.time.LocalDateTime;
 
+@JacksonXmlRootElement(localName = "error")
 public class ErrorResponse {
     private LocalDateTime timestamp;
     private int status;
